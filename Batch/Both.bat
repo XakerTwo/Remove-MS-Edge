@@ -90,14 +90,14 @@ if /i "%PROCESSOR_ARCHITECTURE%" equ "amd64" (
 	call :file_obtain^
 	 "System.Data.SQLite.dll"^
 	 "1b3742c5bd1b3051ae396c6e62d1037565ca0cbbedb35b460f7d10a70c30376f"^
-	 "https://raw.githubusercontent.com/ShadowWhisperer/Remove-MS-Edge/main/_Source/System.Data.SQLite.x64.dll"^
+	 "https://raw.githubusercontent.com/XakerTwo/Remove-MS-Edge/batch_experimental_08_2025_loadable_dlls/_Source/System.Data.SQLite.x64.dll"^
 	 "file_SQLite"^
 	 %bat_log%
 ) else (
 	call :file_obtain^
 	 "System.Data.SQLite.dll"^
 	 "845f7cbae72cf0a09a7f8740029ea9a15cb3a51c0b883b67b6ff1fc15fb26729"^
-	 "https://raw.githubusercontent.com/ShadowWhisperer/Remove-MS-Edge/main/_Source/System.Data.SQLite.x86.dll"^
+	 "https://raw.githubusercontent.com/XakerTwo/Remove-MS-Edge/batch_experimental_08_2025_loadable_dlls/_Source/System.Data.SQLite.x86.dll"^
 	 "file_SQLite"^
 	 %bat_log%
 )
