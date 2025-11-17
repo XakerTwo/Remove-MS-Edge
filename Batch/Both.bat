@@ -17,6 +17,13 @@ set "ISSUE_UAC=2"
 set "ISSUE_NETWORK=3"
 set "ISSUE_DOWNLOAD=4"
 set "ISSUE_HASH=5"
+set "ISSUE_ARCH=6"
+
+REM check for architecture (x86 and x64 are supported, arm - not)
+if /i "%PROCESSOR_ARCHITECTURE%" equ "amd64" goto arch.pass
+if /i "%PROCESSOR_ARCHITECTURE%" equ "x86" goto arch.pass
+echo "%PROCESSOR_ARCHITECTURE%" platform is unsupported & echo. & pause & exit /b %ISSUE_ARCH%
+:arch.pass
 
 REM set logging verbosity ( log_lvl.none, log_lvl.errors, log_lvl.debug )
 REM also set elevated cmd mode (%ecm% var; /c or /k )
@@ -74,46 +81,68 @@ ipconfig | find "IPv" >NUL 2>&1
 if %errorlevel% equ 0 set "has_net=1"
 echo has network: %has_net% %bat_dbg%
 
-REM detect OS bit and obtain correct setup
-REM Thanks to @Ameterius for the 32bit setup,exe
+REM prepare architecture-depend stuff
+REM note: name of such files are the same, regardless of arch
+REM in case of setup.exe it's just for simplicity
+REM in case of sqlite.dll it's required, otherwise "dll not found" error pops out on usage
+REM for universality purposes there a possible lazy-bypass - script-time post-download hardlink
+REM if implemented, all platform-specific versions could be cached and used later e.g. in offline environment
 echo - Obtaining required files
-if /i "%PROCESSOR_ARCHITECTURE%" equ "amd64" (
-    call :file_obtain^
-     "setup.exe"^
-     "4963532e63884a66ecee0386475ee423ae7f7af8a6c6d160cf1237d085adf05e"^
-     "https://raw.githubusercontent.com/ShadowWhisperer/Remove-MS-Edge/main/_Source/setup.exe"^
-     "file_setup"^
-     %bat_log%
-) else (
-    call :file_obtain^
-     "setup.exe"^
-     "876eeab3f753addc42805127683b770590cc1dbaccb02363352bfdc62ccabd76"^
-     "https://raw.githubusercontent.com/ShadowWhisperer/Remove-MS-Edge/main/_Source/setupi386.exe"^
-     "file_setup"^
-     %bat_log%
-)
+echo [prepare()] %bat_dbg%
+goto prepare.%PROCESSOR_ARCHITECTURE%
+
+
+:prepare.amd64
+echo [prepare().amd64] %bat_dbg%
+
+set "target_ProgramFiles=%ProgramFiles(x86)%"
+
+call :file_obtain^
+ "setup.exe"^
+ "4963532e63884a66ecee0386475ee423ae7f7af8a6c6d160cf1237d085adf05e"^
+ "https://raw.githubusercontent.com/ShadowWhisperer/Remove-MS-Edge/main/_Source/setup.exe"^
+ "file_setup"^
+ %bat_log%
 if %errorlevel% neq 0 echo Cannot obtain "setup.exe" (%errorinfo%) & echo. & pause & exit /b %errorlevel%
 
-REM dll name should not be changed, otherwise "dll not found" error pops out on usage
-REM lazy bypass - script-time post-download hardlink
-if /i "%PROCESSOR_ARCHITECTURE%" equ "amd64" (
-	call :file_obtain^
-	 "System.Data.SQLite.dll"^
-	 "1b3742c5bd1b3051ae396c6e62d1037565ca0cbbedb35b460f7d10a70c30376f"^
-	 "https://raw.githubusercontent.com/ShadowWhisperer/Remove-MS-Edge/main/_Source/System.Data.SQLite.x64.dll"^
-	 "file_SQLite"^
-	 %bat_log%
-) else (
-	call :file_obtain^
-	 "System.Data.SQLite.dll"^
-	 "845f7cbae72cf0a09a7f8740029ea9a15cb3a51c0b883b67b6ff1fc15fb26729"^
-	 "https://raw.githubusercontent.com/ShadowWhisperer/Remove-MS-Edge/main/_Source/System.Data.SQLite.x86.dll"^
-	 "file_SQLite"^
-	 %bat_log%
-)
+call :file_obtain^
+ "System.Data.SQLite.dll"^
+ "1b3742c5bd1b3051ae396c6e62d1037565ca0cbbedb35b460f7d10a70c30376f"^
+ "https://raw.githubusercontent.com/ShadowWhisperer/Remove-MS-Edge/main/_Source/System.Data.SQLite.x64.dll"^
+ "file_SQLite"^
+ %bat_log%
 if %errorlevel% neq 0 echo Cannot obtain "System.Data.SQLite.dll" (%errorinfo%) & echo. & pause & exit /b %errorlevel%
 
-echo files obtained %bat_dbg%
+goto prepare.done
+
+
+:prepare.x86
+echo [prepare().x86] %bat_dbg%
+
+set "target_ProgramFiles=%ProgramFiles%"
+
+REM Thanks to @Ameterius for the 32bit setup.exe
+call :file_obtain^
+ "setup.exe"^
+ "876eeab3f753addc42805127683b770590cc1dbaccb02363352bfdc62ccabd76"^
+ "https://raw.githubusercontent.com/ShadowWhisperer/Remove-MS-Edge/main/_Source/setupi386.exe"^
+ "file_setup"^
+ %bat_log%
+if %errorlevel% neq 0 echo Cannot obtain "setup.exe" (%errorinfo%) & echo. & pause & exit /b %errorlevel%
+
+call :file_obtain^
+ "System.Data.SQLite.dll"^
+ "845f7cbae72cf0a09a7f8740029ea9a15cb3a51c0b883b67b6ff1fc15fb26729"^
+ "https://raw.githubusercontent.com/ShadowWhisperer/Remove-MS-Edge/main/_Source/System.Data.SQLite.x86.dll"^
+ "file_SQLite"^
+ %bat_log%
+if %errorlevel% neq 0 echo Cannot obtain "System.Data.SQLite.dll" (%errorinfo%) & echo. & pause & exit /b %errorlevel%
+
+goto prepare.done
+
+:prepare.done
+echo target_ProgramFiles: %target_ProgramFiles% %bat_dbg%
+echo [prepare().done] %bat_dbg%
 
 
 
@@ -138,7 +167,7 @@ REM #Uninstall
 echo [uninstall()] %bat_dbg%
 echo - Removing Edge
 echo [uninstall().edge.init] %bat_dbg%
-where "%ProgramFiles(x86)%\Microsoft\Edge\Application:*" %bat_log%
+where "%target_ProgramFiles%\Microsoft\Edge\Application:*" %bat_log%
 if %errorlevel% neq 0 goto uninstall.edge.done
 
 echo [uninstall().edge] %bat_dbg%
@@ -152,7 +181,7 @@ echo [uninstall().edge.done] %bat_dbg%
 
 echo - Removing WebView
 echo [uninstall().webview.init] %bat_dbg%
-where "%ProgramFiles(x86)%\Microsoft\EdgeWebView\Application:*" %bat_log%
+where "%target_ProgramFiles%\Microsoft\EdgeWebView\Application:*" %bat_log%
 if %errorlevel% neq 0 goto uninstall.webview.done
 
 echo [uninstall().webview] %bat_dbg%
@@ -211,10 +240,10 @@ echo [cleanup().edge] %bat_dbg%
 
 REM Delete Edge empty folders
 echo [cleanup().edge.dirs] %bat_dbg%
-rd /s /q "%ProgramFiles(x86)%\Microsoft\Edge" %bat_log%
-rd /s /q "%ProgramFiles(x86)%\Microsoft\EdgeCore" %bat_log%
-rd /s /q "%ProgramFiles(x86)%\Microsoft\EdgeUpdate" %bat_log%
-rd /s /q "%ProgramFiles(x86)%\Microsoft\Temp" %bat_log%
+rd /s /q "%target_ProgramFiles%\Microsoft\Edge" %bat_log%
+rd /s /q "%target_ProgramFiles%\Microsoft\EdgeCore" %bat_log%
+rd /s /q "%target_ProgramFiles%\Microsoft\EdgeUpdate" %bat_log%
+rd /s /q "%target_ProgramFiles%\Microsoft\Temp" %bat_log%
 rd /s /q "%AllUsersProfile%\Microsoft\EdgeUpdate" %bat_log%
 
 REM Delete Edge Update Tasks
@@ -244,7 +273,7 @@ echo [cleanup().webview] %bat_dbg%
 
 REM Delete WebView empty folders
 echo [cleanup().webview.dirs] %bat_dbg%
-rd /s /q "%ProgramFiles(x86)%\Microsoft\EdgeWebView" %bat_log%
+rd /s /q "%target_ProgramFiles%\Microsoft\EdgeWebView" %bat_log%
 
 echo [cleanup().webview.done] %bat_dbg%
 
